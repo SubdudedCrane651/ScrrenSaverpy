@@ -1,4 +1,4 @@
 {
     "timeout": 10,
-    "use_lock": false
+    "use_lock": true
 }
