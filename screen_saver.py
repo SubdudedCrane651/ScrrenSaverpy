@@ -10,21 +10,17 @@ class Screensaver:
         self.root.attributes("-fullscreen", True)
         self.root.configure(bg="black")
 
-        # Bind mouse movement and key press events to pause/restart the timer
-        self.root.bind("<Motion>", self.pause_timer)
-        self.root.bind("<KeyPress>", self.pause_timer)
+        # Bind mouse movement and key press events to reset the timer immediately
+        self.root.bind("<Motion>", self.reset_timer)
+        self.root.bind("<KeyPress>", self.reset_timer)
 
         self.screensaver_active = False
         self.after_id = None
-        self.timer_paused = False  # Track whether the timer is paused
 
         self.schedule_screensaver()
 
     def schedule_screensaver(self):
-        """Resets the timer so it runs repeatedly."""
-        if self.timer_paused:  # If paused, don't restart the timer
-            return
-
+        """Starts or restarts the timer for the screensaver activation."""
         if self.after_id is not None:
             self.root.after_cancel(self.after_id)  # Cancel old timer
 
@@ -40,26 +36,13 @@ class Screensaver:
             if self.lock_on_activate:
                 os.system("rundll32.exe user32.dll, LockWorkStation")
 
-    def deactivate_screensaver(self, event=None):
-        """Hides the screensaver and resets the timer."""
+    def reset_timer(self, event=None):
+        """Resets the countdown immediately when mouse or keyboard activity is detected."""
         if self.screensaver_active:
-            self.root.withdraw()
+            self.root.withdraw()  # Hide screensaver
             self.screensaver_active = False
-            self.schedule_screensaver()  # Restart countdown immediately
-
-    def pause_timer(self, event=None):
-        """Pauses the timer when mouse moves or key is pressed, and resumes after idle."""
-        self.timer_paused = True
-        if self.after_id is not None:
-            self.root.after_cancel(self.after_id)  # Cancel pending activation
-
-        # Resume countdown after short idle period
-        self.root.after(5000, self.resume_timer)  # Resume countdown after 5 sec of no movement or key press
-
-    def resume_timer(self):
-        """Resumes the countdown when the user stops moving the mouse or pressing keys."""
-        self.timer_paused = False
-        self.schedule_screensaver()
+        
+        self.schedule_screensaver()  # Restart countdown immediately
 
     def run(self):
         """Start screensaver hidden, ensuring multiple activations work."""
