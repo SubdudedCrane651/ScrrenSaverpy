@@ -9,7 +9,7 @@ def load_config():
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
     except Exception:
-        config = {"timeout": 1, "use_lock": False}  # Default: 1 minute
+        config = {"timeout": 1, "lock_on_activate": False}  # Default: 1 minute
     return config
 
 def save_config(config):
@@ -20,7 +20,7 @@ def submit():
     try:
         timeout_minutes = int(timeout_entry.get())
         use_lock = lock_var.get()
-        config = {"timeout": timeout_minutes, "use_lock": use_lock}
+        config = {"timeout": timeout_minutes, "lock_on_activate": use_lock}
         save_config(config)
         messagebox.showinfo("Success", "Configuration saved!")
     except ValueError:
@@ -37,7 +37,7 @@ timeout_entry = tk.Entry(root)
 timeout_entry.insert(0, str(config.get("timeout", 1)))
 timeout_entry.pack(pady=5)
 
-lock_var = tk.BooleanVar(value=config.get("use_lock", False))
+lock_var = tk.BooleanVar(value=config.get("lock_on_activate", False))
 tk.Checkbutton(root, text="Go to logon screen on trigger", variable=lock_var).pack(pady=5)
 
 tk.Button(root, text="Save Configuration", command=submit).pack(pady=20)
