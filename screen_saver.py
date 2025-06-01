@@ -1,53 +1,42 @@
 import tkinter as tk
-import os
 import json
-import subprocess
 
 class Screensaver:
     def __init__(self, config):
         self.timeout = config.get("timeout", 60000)  # Timeout in milliseconds
-        self.use_lock = config.get("use_lock", False)  # Lock screen trigger option
         self.root = tk.Tk()
         self.root.attributes("-fullscreen", True)
         self.root.configure(bg="black")
-        
-        self.root.bind("<Motion>", self.reset_timer)
-        self.root.bind("<KeyPress>", self.reset_timer)
+
+        # Bind mouse/keyboard events to exit screensaver
+        self.root.bind("<Motion>", self.deactivate_screensaver)
+        self.root.bind("<KeyPress>", self.deactivate_screensaver)
 
         self.screensaver_active = False
         self.after_id = None
-        self.schedule_screensaver()  # Start the countdown
+        self.schedule_screensaver()
 
     def schedule_screensaver(self):
+        """Resets the timer so it runs repeatedly."""
         if self.after_id is not None:
-            self.root.after_cancel(self.after_id)
+            self.root.after_cancel(self.after_id)  # Cancel old timer
         self.after_id = self.root.after(self.timeout, self.activate_screensaver)
 
     def activate_screensaver(self):
+        """Triggers the blank screen and ensures repeat activation."""
         if not self.screensaver_active:
-            self.root.deiconify()  # Show the full-screen window
+            self.root.deiconify()
             self.screensaver_active = True
-            
-            if self.use_lock:
-                self.go_to_logon()
 
-    def go_to_logon(self):
-        """Lock the screen and start background watcher."""
-        os.system("rundll32.exe user32.dll, LockWorkStation")
-        subprocess.Popen(["python", "login_watcher.py"])
-        self.root.withdraw()
-
-    def reset_timer(self, event=None):
-        if self.after_id is not None:
-            self.root.after_cancel(self.after_id)
-            self.after_id = None
+    def deactivate_screensaver(self, event=None):
+        """Hides the screensaver and resets the timer."""
         if self.screensaver_active:
             self.root.withdraw()
             self.screensaver_active = False
-        else:
-            self.schedule_screensaver()
+            self.schedule_screensaver()  # Restart countdown immediately
 
     def run(self):
+        """Start screensaver hidden, ensuring multiple activations work."""
         self.root.withdraw()
         self.root.mainloop()
 
@@ -56,8 +45,8 @@ def load_config(config_file='config.json'):
         with open(config_file, 'r') as f:
             config = json.load(f)
     except Exception:
-        config = {"timeout": 1, "use_lock": False}  # Default: 1 minute
-    config["timeout"] *= 60000  # Convert minutes to milliseconds
+        config = {"timeout": 60000}  # Default: 1 minute
+    config["timeout"] *= 60000 if config["timeout"] < 1000 else 1  # Convert minutes if needed
     return config
 
 if __name__ == "__main__":
