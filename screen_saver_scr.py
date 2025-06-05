@@ -2,6 +2,7 @@ import os
 import json
 import time
 import threading
+import ctypes
 from pynput import mouse, keyboard
 
 class Screensaver:
@@ -32,13 +33,22 @@ class Screensaver:
             time.sleep(1)  # Check every second
 
     def activate_screensaver(self):
-        """Runs the Windows screensaver when idle time expires."""
-        print("⏳ Timer expired! Activating screensaver...")
-        self.screensaver_active = True
-        os.system(self.screensaver_file)
+        """Runs the Windows screensaver and ensures it stays in the foreground."""
+        if not self.screensaver_active:
+            print("⏳ Timer expired! Activating screensaver...")
+            self.screensaver_active = True
+            os.system(self.screensaver_file)
 
-        if self.lock_on_activate:
-            os.system("rundll32.exe user32.dll, LockWorkStation")
+            # Force the screensaver to stay on top
+            self.set_foreground()
+
+            if self.lock_on_activate:
+                os.system("rundll32.exe user32.dll, LockWorkStation")
+
+    def set_foreground(self):
+        """Brings the screensaver to the top and keeps it active."""
+        hwnd = ctypes.windll.user32.GetForegroundWindow()
+        ctypes.windll.user32.SetForegroundWindow(hwnd)
 
     def reset_timer(self, event_type):
         """Resets the countdown when mouse or keyboard activity is detected."""
@@ -48,6 +58,15 @@ class Screensaver:
         if self.screensaver_active:
             print("❌ Hiding screensaver due to activity...")
             self.screensaver_active = False
+
+            # Lock screen after activity
+            if self.lock_on_activate:
+                self.lock_screen()
+
+    def lock_screen(self):
+        """Locks the screen after mouse or keyboard activity."""
+        print("🔒 Locking screen due to activity...")
+        os.system("rundll32.exe user32.dll, LockWorkStation")
 
     def track_mouse_movement(self):
         """Listens for system-wide mouse movement."""
