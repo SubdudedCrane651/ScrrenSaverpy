@@ -3,6 +3,7 @@ import json
 import time
 import threading
 import subprocess
+import ctypes
 from pynput import mouse, keyboard
 
 class Screensaver:
@@ -33,16 +34,25 @@ class Screensaver:
             time.sleep(1)  # Check every second
 
     def activate_screensaver(self):
-        """Runs the Windows screensaver in full-screen mode, just like clicking it manually."""
+        """Runs the Windows screensaver properly in full screen after restoring the Python window."""
         if not self.screensaver_active:
-            print("⏳ Timer expired! Activating screensaver...")
-            self.screensaver_active = True
+            print("⏳ Timer expired! Restoring Python window and activating screensaver...")
+
+            # Restore minimized Python window
+            self.restore_python_window()
 
             # Run `.scr` exactly as Windows does when you click it
             subprocess.run([self.screensaver_file, "/s"], shell=True)
 
             if self.lock_on_activate:
                 os.system("rundll32.exe user32.dll, LockWorkStation")
+
+    def restore_python_window(self):
+        """Finds and restores the minimized Python script window."""
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE (Restores minimized window)
+            ctypes.windll.user32.SetForegroundWindow(hwnd)
 
     def reset_timer(self, event_type):
         """Resets the countdown when mouse or keyboard activity is detected."""
