@@ -2,7 +2,7 @@ import os
 import json
 import time
 import threading
-import ctypes
+import subprocess
 from pynput import mouse, keyboard
 
 class Screensaver:
@@ -33,28 +33,22 @@ class Screensaver:
             time.sleep(1)  # Check every second
 
     def activate_screensaver(self):
-        """Runs the Windows screensaver and ensures it stays in the foreground."""
+        """Runs the Windows screensaver in full-screen mode, just like clicking it manually."""
         if not self.screensaver_active:
             print("⏳ Timer expired! Activating screensaver...")
             self.screensaver_active = True
-            os.system(self.screensaver_file)
 
-            # Force the screensaver to stay on top
-            self.set_foreground()
+            # Run `.scr` exactly as Windows does when you click it
+            subprocess.run([self.screensaver_file, "/s"], shell=True)
 
             if self.lock_on_activate:
                 os.system("rundll32.exe user32.dll, LockWorkStation")
-
-    def set_foreground(self):
-        """Brings the screensaver to the top and keeps it active."""
-        hwnd = ctypes.windll.user32.GetForegroundWindow()
-        ctypes.windll.user32.SetForegroundWindow(hwnd)
 
     def reset_timer(self, event_type):
         """Resets the countdown when mouse or keyboard activity is detected."""
         print(f"🔄 {event_type} detected! Resetting timer...")
         self.last_activity_time = time.time()
-        
+
         if self.screensaver_active:
             print("❌ Hiding screensaver due to activity...")
             self.screensaver_active = False
@@ -88,13 +82,13 @@ def load_config(config_file='config.json'):
     try:
         with open(config_file, 'r') as f:
             config = json.load(f)
-            
+
         if config["timeout"] < 1000:
             config["timeout"] *= 60000  # Convert minutes to milliseconds
-            
+
     except Exception:
         config = {"timeout": 1, "lock_on_activate": False, "screensaver_path": "C:\\Windows\\System32\\VideoScreenSaver.scr"}
-        
+
     return config
 
 if __name__ == "__main__":
