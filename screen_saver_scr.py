@@ -37,14 +37,19 @@ class Screensaver:
         """Runs the Windows screensaver properly in full screen after restoring the Python window."""
         if not self.screensaver_active:
             print("⏳ Timer expired! Restoring Python window and activating screensaver...")
-
+            
             # Restore minimized Python window
             self.restore_python_window()
 
             # Run `.scr` exactly as Windows does when you click it
+            self.force_hide_cursor()
             command = f'start "" "{self.screensaver_file}" /s'
             self.screensaver_process = subprocess.Popen(command, shell=True)
             self.screensaver_active = True
+
+    def force_hide_cursor(self):
+        while ctypes.windll.user32.ShowCursor(False) >= 0:
+            pass
 
     def restore_python_window(self):
         """Finds and restores the minimized Python script window."""
@@ -59,6 +64,8 @@ class Screensaver:
 
         if self.screensaver_active:
             print("❌ Hiding screensaver due to activity...")
+            ctypes.windll.user32.ShowCursor(True)
+
             self.screensaver_active = False
 
             # Try to terminate screensaver process

@@ -3,81 +3,84 @@ import json
 import os
 import time
 import pyautogui
+import threading
 from pynput import keyboard
 
 class Screensaver:
     def __init__(self, config):
-        self.timeout = config.get("timeout", 60000)  # Timeout in milliseconds
-        self.lock_on_activate = config.get("lock_on_activate", False)  # Lock screen option
-        self.last_activity_time = time.time()  # Track last activity time
+        self.timeout = config.get("timeout", 60000)
+        self.lock_on_activate = config.get("lock_on_activate", False)
+        self.last_activity_time = time.time()
+
         self.root = tk.Tk()
         self.root.attributes("-fullscreen", True)
         self.root.configure(bg="black")
-
-        self.screensaver_active = False
         self.root.withdraw()  # Start hidden
 
-        self.after_id = None  # Track scheduled timer
+        self.screensaver_active = False
+        self.after_id = None
+
+        # Start tracking
+        threading.Thread(target=self.track_mouse_movement, daemon=True).start()
+        threading.Thread(target=self.track_keyboard_input, daemon=True).start()
+
+        # Start screensaver timer
         self.schedule_screensaver()
 
     def schedule_screensaver(self):
-        """Starts a fresh timer for screensaver activation."""
         if self.after_id is not None:
-            self.root.after_cancel(self.after_id)  # Cancel previous timer
+            self.root.after_cancel(self.after_id)
 
-        self.after_id = self.root.after(self.timeout, self.activate_screensaver)  # Start new countdown
+        self.after_id = self.root.after(self.timeout, self.activate_screensaver)
 
     def activate_screensaver(self):
-        """Triggers the screensaver when timeout expires."""
         if not self.screensaver_active:
             print("⏳ Timer expired! Activating screensaver...")
             self.screensaver_active = True
+            self.root.config(cursor="none")  # Hide mouse pointer
             self.root.deiconify()
 
-            if self.lock_on_activate:
-                os.system("rundll32.exe user32.dll, LockWorkStation")
-
     def reset_timer(self, event=None):
-        """Stops screensaver and fully resets idle timer on user activity."""
         print("🔄 Activity detected! Resetting timer...")
-
-        self.last_activity_time = time.time()  # Reset idle tracker
+        self.last_activity_time = time.time()
+        self.root.config(cursor="arrow")  # Restore mouse pointer
+        self.root.withdraw()
 
         if self.screensaver_active:
             print("❌ Hiding screensaver due to activity...")
-            self.root.withdraw()  # Hide screensaver
-            self.screensaver_active = False  # Mark as inactive
+            self.root.withdraw()
+            self.screensaver_active = False
 
-        # Ensure timer restarts from scratch
+            if self.lock_on_activate:
+                self.lock_screen()
+
         self.schedule_screensaver()
 
+    def lock_screen(self):
+        print("🔒 Locking screen due to activity...")
+        os.system("rundll32.exe user32.dll, LockWorkStation")
+
     def track_mouse_movement(self):
-        """Continuously checks for system-wide mouse movement."""
         last_mouse_pos = pyautogui.position()
-        
+
         while True:
-            time.sleep(1)  # Check every second
+            time.sleep(1)
             current_mouse_pos = pyautogui.position()
 
-            if current_mouse_pos != last_mouse_pos:  # Detect movement
+            if current_mouse_pos != last_mouse_pos:
+                print("🖱 Mouse movement detected!")
                 self.reset_timer()
-                print("🖱 Mouse movement detected! Resetting timer...")
-                last_mouse_pos = current_mouse_pos  # Update last position
+                last_mouse_pos = current_mouse_pos
 
     def track_keyboard_input(self):
-        """Listens for system-wide keyboard input to reset the timer."""
         def on_press(key):
-            print(f"⌨️ Key '{key}' pressed! Resetting timer...")
+            print(f"⌨️ Key '{key}' pressed!")
             self.reset_timer()
 
         with keyboard.Listener(on_press=on_press) as listener:
             listener.join()
 
     def run(self):
-        """Keeps the screensaver running & tracks mouse + keyboard input properly."""
-        import threading
-        threading.Thread(target=self.track_mouse_movement, daemon=True).start()
-        threading.Thread(target=self.track_keyboard_input, daemon=True).start()
         self.root.mainloop()
 
 def load_config(config_file='config.json'):
@@ -85,10 +88,10 @@ def load_config(config_file='config.json'):
         with open(config_file, 'r') as f:
             config = json.load(f)
     except Exception:
-        config = {"timeout": 1, "lock_on_activate": False}  # Default: 1 minute
+        config = {"timeout": 1, "lock_on_activate": False}
 
     if config["timeout"] < 1000:
-        config["timeout"] *= 60000  # Convert minutes to milliseconds
+        config["timeout"] *= 60000
 
     return config
 

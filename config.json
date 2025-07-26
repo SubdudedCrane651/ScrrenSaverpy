@@ -1,4 +1,4 @@
 {
-    "timeout": 1,
+    "timeout": 5,
     "lock_on_activate": true
 }
