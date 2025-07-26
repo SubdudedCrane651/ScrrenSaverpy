@@ -42,10 +42,9 @@ class Screensaver:
             self.restore_python_window()
 
             # Run `.scr` exactly as Windows does when you click it
-            subprocess.run([self.screensaver_file, "/s"], shell=True)
-
-            if self.lock_on_activate:
-                os.system("rundll32.exe user32.dll, LockWorkStation")
+            command = f'start "" "{self.screensaver_file}" /s'
+            self.screensaver_process = subprocess.Popen(command, shell=True)
+            self.screensaver_active = True
 
     def restore_python_window(self):
         """Finds and restores the minimized Python script window."""
@@ -55,7 +54,6 @@ class Screensaver:
             ctypes.windll.user32.SetForegroundWindow(hwnd)
 
     def reset_timer(self, event_type):
-        """Resets the countdown when mouse or keyboard activity is detected."""
         print(f"🔄 {event_type} detected! Resetting timer...")
         self.last_activity_time = time.time()
 
@@ -63,7 +61,14 @@ class Screensaver:
             print("❌ Hiding screensaver due to activity...")
             self.screensaver_active = False
 
-            # Lock screen after activity
+            # Try to terminate screensaver process
+            if self.screensaver_process and self.screensaver_process.poll() is None:
+                try:
+                    self.screensaver_process.terminate()
+                except Exception as e:
+                    print(f"⚠️ Failed to terminate screensaver: {e}")
+
+            # Lock screen now
             if self.lock_on_activate:
                 self.lock_screen()
 
