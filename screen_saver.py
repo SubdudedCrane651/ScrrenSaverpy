@@ -25,7 +25,17 @@ class Screensaver:
         threading.Thread(target=self.track_keyboard_input, daemon=True).start()
 
         # Start screensaver timer
-        self.schedule_screensaver()
+        self.check_inactivity()
+        
+    def check_inactivity(self):
+        if not self.screensaver_active:
+            elapsed = time.time() - self.last_activity_time
+            if elapsed >= self.timeout / 1000:
+                print("⏳ No activity detected. Activating screensaver...")
+                self.screensaver_active = True
+                self.root.config(cursor="none")
+                self.root.deiconify()
+        self.root.after(1000, self.check_inactivity)        
 
     def schedule_screensaver(self):
         if self.after_id is not None:
