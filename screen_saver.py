@@ -8,7 +8,7 @@ from pynput import keyboard
 
 class Screensaver:
     def __init__(self, config):
-        self.timeout = config.get("timeout", 60000)
+        self.timeout = config.get("timeout", 60000)  # milliseconds
         self.lock_on_activate = config.get("lock_on_activate", False)
         self.last_activity_time = time.time()
 
@@ -18,7 +18,10 @@ class Screensaver:
         self.root.withdraw()  # Start hidden
 
         self.screensaver_active = False
-        self.after_id = None
+
+        # Bind direct input events
+        self.root.bind_all("<Motion>", lambda e: self.reset_timer(event=e, source="Tkinter Mouse"))
+        self.root.bind_all("<Key>", lambda e: self.reset_timer(event=e, source="Tkinter Key"))
 
         # Start tracking
         threading.Thread(target=self.track_mouse_movement, daemon=True).start()
@@ -26,45 +29,30 @@ class Screensaver:
 
         # Start screensaver timer
         self.check_inactivity()
-        
+
     def check_inactivity(self):
-        if not self.screensaver_active:
-            elapsed = time.time() - self.last_activity_time
-            if elapsed >= self.timeout / 1000:
-                print("⏳ No activity detected. Activating screensaver...")
-                self.screensaver_active = True
-                self.root.config(cursor="none")
-                self.root.deiconify()
-        self.root.after(1000, self.check_inactivity)        
-
-    def schedule_screensaver(self):
-        if self.after_id is not None:
-            self.root.after_cancel(self.after_id)
-
-        self.after_id = self.root.after(self.timeout, self.activate_screensaver)
+        elapsed = time.time() - self.last_activity_time
+        if not self.screensaver_active and elapsed >= self.timeout / 1000:
+            print("⏳ No activity detected. Activating screensaver...")
+            self.activate_screensaver()
+        self.root.after(100, self.check_inactivity)  # Check every 100ms
 
     def activate_screensaver(self):
-        if not self.screensaver_active:
-            print("⏳ Timer expired! Activating screensaver...")
-            self.screensaver_active = True
-            self.root.config(cursor="none")  # Hide mouse pointer
-            self.root.deiconify()
+        self.screensaver_active = True
+        self.root.config(cursor="none")
+        self.root.deiconify()
 
-    def reset_timer(self, event=None):
-        print("🔄 Activity detected! Resetting timer...")
+    def reset_timer(self, event=None, source="Unknown"):
+        print(f"🔄 Activity detected from {source}! Resetting timer...")
         self.last_activity_time = time.time()
-        self.root.config(cursor="arrow")  # Restore mouse pointer
-        self.root.withdraw()
 
         if self.screensaver_active:
             print("❌ Hiding screensaver due to activity...")
             self.root.withdraw()
+            self.root.config(cursor="arrow")
             self.screensaver_active = False
-
             if self.lock_on_activate:
                 self.lock_screen()
-
-        self.schedule_screensaver()
 
     def lock_screen(self):
         print("🔒 Locking screen due to activity...")
@@ -72,23 +60,18 @@ class Screensaver:
 
     def track_mouse_movement(self):
         last_mouse_pos = pyautogui.position()
-
         while True:
-            time.sleep(1)
+            time.sleep(0.1)
             current_mouse_pos = pyautogui.position()
-
             if current_mouse_pos != last_mouse_pos:
-                print("🖱 Mouse movement detected!")
-                self.reset_timer()
+                self.reset_timer(source="Mouse")
                 last_mouse_pos = current_mouse_pos
 
     def track_keyboard_input(self):
         def on_press(key):
-            print(f"⌨️ Key '{key}' pressed!")
-            self.reset_timer()
-
-        with keyboard.Listener(on_press=on_press) as listener:
-            listener.join()
+            self.reset_timer(source="Keyboard")
+        listener = keyboard.Listener(on_press=on_press)
+        listener.start()
 
     def run(self):
         self.root.mainloop()
@@ -100,9 +83,8 @@ def load_config(config_file='config.json'):
     except Exception:
         config = {"timeout": 1, "lock_on_activate": False}
 
-    if config["timeout"] < 1000:
-        config["timeout"] *= 60000
-
+    # Convert minutes to milliseconds
+    config["timeout"] = max(config.get("timeout", 1), 1) * 60 * 1000
     return config
 
 if __name__ == "__main__":
