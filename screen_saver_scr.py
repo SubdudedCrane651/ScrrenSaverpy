@@ -107,6 +107,8 @@ def load_config(config_file='config.json'):
 
         if config["timeout"] < 1000:
             config["timeout"] *= 60000  # Convert minutes to milliseconds
+        
+        config["lock_on_activate"] = config.get("lock_on_activate", False)    
 
     except Exception:
         config = {"timeout": 1, "lock_on_activate": False, "screensaver_path": "C:\\Windows\\System32\\VideoScreenSaver.scr"}

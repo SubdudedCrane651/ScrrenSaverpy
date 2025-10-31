@@ -85,6 +85,7 @@ def load_config(config_file='config.json'):
 
     # Convert minutes to milliseconds
     config["timeout"] = max(config.get("timeout", 1), 1) * 60 * 1000
+    config["lock_on_activate"] = config.get("lock_on_activate", False)  
     return config
 
 if __name__ == "__main__":
