@@ -1,4 +1,5 @@
 {
     "timeout": 10,
-    "lock_on_activate": false
+    "lock_on_activate": true,
+    "screensaver": "VideoScreenSaver.scr"
 }

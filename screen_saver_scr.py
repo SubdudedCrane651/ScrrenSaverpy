@@ -10,7 +10,7 @@ class Screensaver:
     def __init__(self, config):
         self.timeout = config.get("timeout", 60000)  # Timeout in milliseconds
         self.lock_on_activate = config.get("lock_on_activate", False)  # Lock screen option
-        self.screensaver_file = config.get("screensaver_path", "C:\\Windows\\System32\\Mystify.scr")  # Default screensaver
+        self.screensaver_file = "C:\\Windows\\System32\\"+config.get("screensaver", "Mystify.scr")  # Default screensaver
 
         self.last_activity_time = time.time()
         self.screensaver_active = False
@@ -109,6 +109,7 @@ def load_config(config_file='config.json'):
             config["timeout"] *= 60000  # Convert minutes to milliseconds
         
         config["lock_on_activate"] = config.get("lock_on_activate", False)    
+        config["screensaver"] = config.get("screensaver","mystify.scr")
 
     except Exception:
         config = {"timeout": 1, "lock_on_activate": False, "screensaver_path": "C:\\Windows\\System32\\VideoScreenSaver.scr"}
