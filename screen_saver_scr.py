@@ -9,7 +9,7 @@ from pynput import mouse, keyboard
 
 
 # ------------------------------------------------------------
-# MONITOR ENUMERATION
+# ENUMERATE MONITORS
 # ------------------------------------------------------------
 
 def get_monitors():
@@ -45,7 +45,28 @@ def get_monitors():
 
 
 # ------------------------------------------------------------
-# MOVE SCREENSAVER WINDOW TO TARGET MONITOR
+# ENUMERATE WINDOWS FOR A PROCESS
+# ------------------------------------------------------------
+
+def get_windows_for_pid(pid):
+    hwnds = []
+
+    @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
+    def enum_windows(hwnd, lParam):
+        proc_id = ctypes.c_ulong()
+        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
+
+        if proc_id.value == pid and ctypes.windll.user32.IsWindowVisible(hwnd):
+            hwnds.append(hwnd)
+
+        return True
+
+    ctypes.windll.user32.EnumWindows(enum_windows, 0)
+    return hwnds
+
+
+# ------------------------------------------------------------
+# MOVE WINDOW TO MONITOR
 # ------------------------------------------------------------
 
 def move_window_to_monitor(hwnd, rect):
@@ -67,13 +88,12 @@ def move_window_to_monitor(hwnd, rect):
 def run_screensaver_on_monitor(scr_path, monitor_rect):
     proc = subprocess.Popen(f'"{scr_path}" /s', shell=True)
 
-    # Give the screensaver time to create its window
-    time.sleep(0.5)
+    # Give it time to create windows
+    time.sleep(0.7)
 
-    # Find the screensaver window (class name is always "WindowsScreenSaverClass")
-    hwnd = ctypes.windll.user32.FindWindowW("WindowsScreenSaverClass", None)
+    hwnds = get_windows_for_pid(proc.pid)
 
-    if hwnd:
+    for hwnd in hwnds:
         move_window_to_monitor(hwnd, monitor_rect)
 
     return proc
@@ -148,6 +168,13 @@ class Screensaver:
     # --------------------------------------------------------
 
     def reset_timer(self, event_type):
+        # Ignore popup focus changes
+        foreground = ctypes.windll.user32.GetForegroundWindow()
+        console = ctypes.windll.kernel32.GetConsoleWindow()
+
+        if foreground != console and not self.screensaver_active:
+            return
+
         print(f"🔄 {event_type} detected! Resetting timer...")
         self.last_activity_time = time.time()
 
@@ -155,7 +182,6 @@ class Screensaver:
             print("❌ Hiding screensaver due to activity...")
             ctypes.windll.user32.ShowCursor(True)
 
-            # Terminate all screensaver instances
             for proc in self.screensaver_processes:
                 try:
                     if proc.poll() is None:
@@ -178,8 +204,17 @@ class Screensaver:
     # --------------------------------------------------------
 
     def track_mouse_movement(self):
+        last_pos = [None, None]
+
         def on_move(x, y):
-            self.reset_timer("Mouse movement")
+            if last_pos[0] is None:
+                last_pos[0], last_pos[1] = x, y
+                return
+
+            # Only count REAL movement
+            if abs(x - last_pos[0]) > 1 or abs(y - last_pos[1]) > 1:
+                last_pos[0], last_pos[1] = x, y
+                self.reset_timer("Mouse movement")
 
         with mouse.Listener(on_move=on_move) as listener:
             listener.join()
@@ -188,6 +223,15 @@ class Screensaver:
 
     def track_keyboard_input(self):
         def on_press(key):
+            # Ignore modifier-only events
+            if key in {
+                keyboard.Key.shift, keyboard.Key.shift_r,
+                keyboard.Key.ctrl, keyboard.Key.ctrl_r,
+                keyboard.Key.alt, keyboard.Key.alt_r,
+                keyboard.Key.cmd, keyboard.Key.cmd_r
+            }:
+                return
+
             self.reset_timer(f"Key '{key}' pressed")
 
         with keyboard.Listener(on_press=on_press) as listener:
